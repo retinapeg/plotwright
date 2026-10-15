@@ -107,3 +107,14 @@ def test_lhcb(source):
     assert any(t.get_text() == 'LHCb' for t in ax.texts)
     assert 'Candidates / (1 [s])' in ax.get_ylabel()
     assert all(r['source'] for r in RULES['lhcb'])
+
+
+def test_fake_evals(tmp_path):
+    from evals.run import run
+    from plotwright.llm.fake import FakeAdapter
+    outcomes, report, path = run(FakeAdapter(), results_dir=tmp_path)
+    assert all(row['passed'] for row in outcomes), report
+    for row in outcomes:
+        if row['category'] == 'adversarial':
+            assert row['got'] in ('refuse', 'question') or any('hidden_points:' in w for w in row['warnings'])
+    assert path.exists()

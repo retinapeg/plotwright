@@ -1,0 +1,6 @@
+time_s,displacement_m,displacement_unc_m
+0.1,0.05,0.006
+0.2,,0.006
+0.3,0.44,
+0.4,text,0.006
+0.5,1.23,0.006
