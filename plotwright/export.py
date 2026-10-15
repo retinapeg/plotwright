@@ -97,17 +97,25 @@ def load_bundle(directory):
     recipe = Recipe.model_validate_json((directory / 'recipe.json').read_text())
     result = render(df, loaded, recipe)
     checks = run_checks(df, loaded, recipe, result)
-    if any(c.status == 'FAIL' for c in checks): raise ValueError('Bundle checks failed')
+    if any(c.status == 'FAIL' for c in checks):
+        plt.close(result.fig)
+        raise ValueError('Bundle checks failed')
     return recipe, loaded, result, checks
 
 
 def verify_bundle(directory):
     recipe, manifest, result, checks = load_bundle(directory)
-    if (Path(directory) / 'plotted.csv').read_bytes() != plotted_csv(result).encode():
-        raise ValueError('Tampering detected: plotted.csv differs from source and recipe')
-    return checks
+    try:
+        if (Path(directory) / 'plotted.csv').read_bytes() != plotted_csv(result).encode():
+            raise ValueError('Tampering detected: plotted.csv differs from source and recipe')
+        return checks
+    finally:
+        plt.close(result.fig)
 
 
 def regenerate(directory, out_dir):
     recipe, manifest, result, checks = load_bundle(directory)
-    return export(result, recipe, manifest, checks, out_dir)
+    try:
+        return export(result, recipe, manifest, checks, out_dir)
+    finally:
+        plt.close(result.fig)

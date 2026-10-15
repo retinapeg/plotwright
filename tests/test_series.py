@@ -88,3 +88,14 @@ def test_new_examples_render():
             assert len(state.result.plotted['series']) == 2
             assert 'Candidates / (10 [MeV/c^2])' in state.result.fig.axes[0].get_ylabel()
         plt.close(state.result.fig)
+
+
+def test_new_series_keeps_its_source_unit(multiple):
+    df, manifest, recipe = multiple
+    session = Session(df, manifest, Recipe(x='x', y='a', y_err='ae', x_unit='s', y_unit='m'))
+    session.apply(recipe)
+    before = session.current
+    transforms = [{'column': col, 'from_unit': 'mm' if col == 'b' else 'm', 'to_unit': 'cm'} for col in ('a', 'b', 'model')]
+    with pytest.raises(RejectedEdit, match='Source unit for b is m'):
+        session.apply({**recipe.model_dump(), 'y_unit': 'cm', 'transforms': transforms})
+    assert session.current is before

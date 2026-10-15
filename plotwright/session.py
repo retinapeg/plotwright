@@ -61,6 +61,12 @@ class Session:
             raise RejectedEdit(failures, state.checks)
         if self.current is not None: self.history.append(self.current)
         self.current = state
+        units = [(state.recipe.x, state.recipe.x_unit), *[(s.y, state.recipe.y_unit) for s in series_specs(state.recipe)]]
+        if state.recipe.residuals: units.append((state.recipe.residuals.against, state.recipe.y_unit))
+        for column, unit in units:
+            transform = next((t for t in state.recipe.transforms if t.column == column), None)
+            if not self.source_units.get(column):
+                self.source_units[column] = transform.from_unit if transform else unit
         return self.current
 
     def undo(self):
