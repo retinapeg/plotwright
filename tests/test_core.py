@@ -62,3 +62,15 @@ def test_invalid_and_log(tmp_path):
     df.to_csv(path, index=False)
     df, manifest = load_table(path)
     with pytest.raises(ValueError): render(df, manifest, Recipe(x='x', y='y', y_scale='log'))
+
+
+def test_session_rejection_and_undo(source):
+    from plotwright.session import Session, RejectedEdit
+    df, manifest, recipe = source
+    session = Session(df, manifest, recipe)
+    original = session.current
+    with pytest.raises(RejectedEdit): session.apply({**recipe.model_dump(), 'exclude_rows': [0]})
+    assert session.current is original and not session.history
+    session.apply({**recipe.model_dump(), 'title': 'New title'})
+    assert session.current.result.fig.axes[0].get_title() == 'New title'
+    assert session.undo() is original
