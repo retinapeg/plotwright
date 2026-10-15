@@ -14,7 +14,7 @@ from .render import render
 
 def plotted_csv(result):
     p = result.plotted
-    return pd.DataFrame({k: p[k] for k in ('indices', 'x', 'y', 'yerr', 'xerr') if p[k] is not None}).to_csv(index=False, float_format='%.17g', lineterminator='\n')
+    return pd.DataFrame({k: p[k] for k in ('indices', 'x', 'y', 'yerr', 'xerr', 'excluded') if p[k] is not None}).to_csv(index=False, float_format='%.17g', lineterminator='\n')
 
 
 _REGEN = '''from pathlib import Path

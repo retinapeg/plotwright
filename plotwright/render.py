@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from .recipe import validate, label_with_unit
 from .units import conversion
+from .exclusions import draw_data
 
 
 @dataclass
@@ -43,22 +44,19 @@ def render(df, manifest, recipe):
         from .presets import apply_preset, preset_rc, VERSION
         matplotlib.rcParams.update(preset_rc(recipe.style_preset))
         fig, ax = plt.subplots(figsize=(recipe.fig_width_cm / 2.54, recipe.fig_height_cm / 2.54), dpi=100, layout='constrained')
-        x, y = plotted['x'], plotted['y']
-        # Uncertainties are always drawn when supplied, regardless of plot style.
-        fmt = 'o' if recipe.plot_type in ('points', 'points_errorbars') else '-'
-        kwargs = {'drawstyle': 'steps-mid'} if recipe.plot_type in ('step', 'hist_prebinned') else {}
-        container = ax.errorbar(x, y, xerr=plotted['xerr'], yerr=plotted['yerr'], fmt=fmt, label=recipe.legend_label, **kwargs)
-        artists = [container.lines[0], *container.lines[1], *container.lines[2]]
+        containers = draw_data(ax, plotted, recipe, recipe.legend_label)
+        artists = [a for c in containers for a in (c.lines[0], *c.lines[1], *c.lines[2])]
         ax.set(xlabel=label_with_unit(recipe.x_label, recipe.x_unit), ylabel=label_with_unit(recipe.y_label, recipe.y_unit), title=recipe.title or '', xscale=recipe.x_scale, yscale=recipe.y_scale)
         if recipe.x_lim: ax.set_xlim(*recipe.x_lim)
         if recipe.y_lim: ax.set_ylim(*recipe.y_lim)
         for axis in ('x', 'y'):
             digits = getattr(recipe, 'sig_figs_' + axis)
             getattr(ax, axis + 'axis').set_major_formatter(FuncFormatter(lambda v, pos, d=digits: format(v, f'.{d}g')))
-        if recipe.legend_label: ax.legend(loc=recipe.legend_loc)
+        if recipe.legend_label or recipe.exclusions: ax.legend(loc=recipe.legend_loc)
         for a in recipe.annotations: ax.text(a.x, a.y, a.text)
         apply_preset(ax, recipe)
         operations.append({'operation': 'preset', 'name': recipe.style_preset, 'version': VERSION})
         fig.canvas.draw()
         plotted.update(x_lim=tuple(ax.get_xlim()), y_lim=tuple(ax.get_ylim()))
+    operations.extend({'operation': 'exclusion', **e.model_dump()} for e in recipe.exclusions)
     return RenderResult(fig, plotted, operations, artists)

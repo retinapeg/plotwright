@@ -20,6 +20,12 @@ class Annotation(Strict):
     y: float
 
 
+class Exclusion(Strict):
+    row_index: int = Field(ge=0, strict=True)
+    reason: str = ''
+    approved_by: str = ''
+
+
 class Recipe(Strict):
     x: str
     y: str
@@ -44,6 +50,7 @@ class Recipe(Strict):
     style_preset: Literal['default', 'lhcb'] = 'default'
     transforms: list[Transform] = Field(default_factory=list)
     annotations: list[Annotation] = Field(default_factory=list)
+    exclusions: list[Exclusion] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def sensible_limits(self):
@@ -58,6 +65,9 @@ class Recipe(Strict):
 
 def validate(recipe, manifest):
     recipe = Recipe.model_validate(recipe.model_dump() if isinstance(recipe, Recipe) else recipe)
+    rows = [e.row_index for e in recipe.exclusions]
+    if len(set(rows)) != len(rows) or any(row >= manifest.n_rows for row in rows):
+        raise ValueError('Exclusion rows must be unique and within the source table')
     columns = [recipe.x, recipe.y, recipe.x_err, recipe.y_err]
     for col in columns + [t.column for t in recipe.transforms]:
         if col is not None and col not in manifest.columns:

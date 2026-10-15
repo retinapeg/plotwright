@@ -8,6 +8,13 @@ from plotwright.checks import run_checks
 from plotwright.units import factor
 
 
+@pytest.fixture(autouse=True)
+def close_figures():
+    yield
+    import matplotlib.pyplot as plt
+    plt.close("all")
+
+
 @pytest.fixture
 def source(tmp_path):
     path = tmp_path / 'data.csv'
@@ -205,3 +212,48 @@ def test_export_after_ui_canvas_replacement(source, tmp_path):
     checks = run_checks(df, manifest, recipe, result)
     export(result, recipe, manifest, checks, tmp_path / 'serialized')
     assert all(c.status == 'PASS' for c in verify_bundle(tmp_path / 'serialized'))
+
+
+def test_exclusion_visible_and_audited(source, tmp_path):
+    import json
+    from plotwright.export import export, verify_bundle
+    df, manifest, recipe = source
+    recipe = Recipe.model_validate({**recipe.model_dump(), 'exclusions': [{'row_index': 2, 'reason': 'sensor saturation', 'approved_by': 'Leo'}]})
+    result = render(df, manifest, recipe)
+    checks = run_checks(df, manifest, recipe, result)
+    assert all(c.status == 'PASS' for c in checks)
+    np.testing.assert_array_equal(result.plotted['y'], df.d)
+    ax = result.fig.axes[0]
+    line = ax.containers[1].lines[0]
+    assert line.get_markerfacecolor() == 'none' and line.get_color() == 'grey'
+    assert line.get_ydata().tolist() == [3.]
+    assert 'excluded (1)' in [t.get_text() for t in ax.get_legend().get_texts()]
+    out = export(result, recipe, manifest, checks, tmp_path / 'excluded')
+    assert 'sensor saturation' in (out / 'run.log').read_text()
+    check = next(c for c in json.loads((out / 'checks.json').read_text()) if c['name'] == 'exclusions')
+    assert 'Leo' in check['detail'] and 'sensor saturation' in check['detail']
+    assert all(c.status == 'PASS' for c in verify_bundle(out))
+
+
+@pytest.mark.parametrize('exclusion', [{'row_index': 1}, {'row_index': 1, 'reason': 'bad'}, {'row_index': 1, 'reason': ' ', 'approved_by': 'Leo'}])
+def test_unapproved_exclusion_fails_without_commit(source, exclusion):
+    from plotwright.session import Session, RejectedEdit
+    df, manifest, recipe = source
+    session = Session(df, manifest, recipe)
+    old = session.current
+    candidate = Recipe.model_validate({**recipe.model_dump(), 'exclusions': [exclusion]})
+    result = render(df, manifest, candidate)
+    assert next(c for c in run_checks(df, manifest, candidate, result) if c.name == 'exclusions').status == 'FAIL'
+    with pytest.raises(RejectedEdit, match='exclusions'): session.apply(candidate)
+    assert session.current is old
+
+
+def test_exclusion_cannot_disappear_or_be_hidden(source):
+    from plotwright.session import Session, RejectedEdit
+    df, manifest, recipe = source
+    recipe = Recipe.model_validate({**recipe.model_dump(), 'exclusions': [{'row_index': 3, 'reason': 'reviewed', 'approved_by': 'Leo'}]})
+    session = Session(df, manifest, recipe)
+    with pytest.raises(RejectedEdit, match='outside axis limits'): session.apply({**recipe.model_dump(), 'y_lim': [0, 2]})
+    result = session.current.result
+    result.fig.axes[0].containers[1].lines[0].set_visible(False)
+    assert next(c for c in run_checks(df, manifest, recipe, result) if c.name == 'exclusions').status == 'FAIL'
