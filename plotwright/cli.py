@@ -15,10 +15,15 @@ def main(argv=None):
     rendering.add_argument('recipe')
     rendering.add_argument('out_dir')
     rendering.add_argument('--sheet', default=None)
+    commands.add_parser('mcp', help='Run the local Plotwright MCP server over stdio')
     checking = commands.add_parser('check')
     checking.add_argument('out_dir')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'mcp':
+            from .mcp_server import server
+            server.run(transport='stdio')
+            return 0
         if args.command == 'render':
             df, manifest = load_table(args.data, args.sheet)
             recipe = Recipe.model_validate_json(Path(args.recipe).read_text())

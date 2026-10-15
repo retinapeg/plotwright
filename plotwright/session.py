@@ -6,8 +6,9 @@ from .checks import run_checks
 
 
 class RejectedEdit(ValueError):
-    def __init__(self, reasons):
+    def __init__(self, reasons, checks=None):
         self.reasons = reasons
+        self.checks = checks
         super().__init__('; '.join(reasons))
 
 
@@ -31,7 +32,8 @@ class Session:
         self.history = []
         self.apply(recipe)
 
-    def apply(self, new_recipe):
+    def preview(self, new_recipe):
+        """Validate, render and check without changing current or history."""
         candidate = None
         try:
             recipe = validate(Recipe.model_validate(new_recipe.model_dump() if isinstance(new_recipe, Recipe) else new_recipe), self.manifest)
@@ -45,14 +47,20 @@ class Session:
                     raise ValueError(f'Source unit for {column} is {source_unit}; relabeling cannot replace conversion')
             candidate = render(self.df, self.manifest, recipe)
             checks = run_checks(self.df, self.manifest, recipe, candidate)
-            failures = [f'{c.name}: {c.detail}' for c in checks if c.status == 'FAIL']
-            if failures: raise RejectedEdit(failures)
         except (ValueError, TypeError, KeyError) as exc:
             if candidate is not None: plt.close(candidate.fig)
             if isinstance(exc, RejectedEdit): raise
             raise RejectedEdit([str(exc)]) from exc
+        return State(recipe, candidate, checks)
+
+    def apply(self, new_recipe):
+        state = self.preview(new_recipe)
+        failures = [f'{c.name}: {c.detail}' for c in state.checks if c.status == 'FAIL']
+        if failures:
+            plt.close(state.result.fig)
+            raise RejectedEdit(failures, state.checks)
         if self.current is not None: self.history.append(self.current)
-        self.current = State(recipe, candidate, checks)
+        self.current = state
         return self.current
 
     def undo(self):

@@ -28,7 +28,7 @@
   "y_scale": "linear",
   "legend_loc": "upper right",
   "legend_label": null,
-  "sig_figs_x": 3,
+  "sig_figs_x": 4,
   "sig_figs_y": 3,
   "fig_width_cm": 16.0,
   "fig_height_cm": 12.0,
