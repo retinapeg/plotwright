@@ -74,3 +74,24 @@ def test_session_rejection_and_undo(source):
     session.apply({**recipe.model_dump(), 'title': 'New title'})
     assert session.current.result.fig.axes[0].get_title() == 'New title'
     assert session.undo() is original
+
+
+def test_export_regen_and_tampering(source, tmp_path):
+    from plotwright.export import export, regenerate, verify_bundle
+    from plotwright.session import Session, RejectedEdit
+    from plotwright.checks import Check
+    df, manifest, recipe = source
+    session = Session(df, manifest, recipe)
+    state = session.current
+    out = tmp_path / 'out'
+    export(state.result, recipe, manifest, state.checks, out)
+    snapshot = {p.name: p.read_bytes() for p in out.iterdir()}
+    with pytest.raises(RejectedEdit): session.apply({**recipe.model_dump(), 'x': 'missing'})
+    assert session.current is state
+    with pytest.raises(ValueError): export(state.result, recipe, manifest, [Check(name='bad', status='FAIL', detail='test')], out)
+    assert snapshot == {p.name: p.read_bytes() for p in out.iterdir()}
+    regenerate(out, tmp_path / 'regen')
+    assert (out / 'plotted.csv').read_bytes() == (tmp_path / 'regen' / 'plotted.csv').read_bytes()
+    verify_bundle(out)
+    (out / 'plotted.csv').write_text((out / 'plotted.csv').read_text().replace('1,1,1', '1,99,1') + '\n')
+    with pytest.raises(ValueError, match='Tampering'): verify_bundle(out)
