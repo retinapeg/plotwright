@@ -18,8 +18,15 @@ def main(argv=None):
     commands.add_parser('mcp', help='Run the local Plotwright MCP server over stdio')
     checking = commands.add_parser('check')
     checking.add_argument('out_dir')
+    replaying = commands.add_parser('replay', help='Re-render a bundle and report the first differing value')
+    replaying.add_argument('bundle_dir')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'replay':
+            from .replay import replay, format_replay
+            report = replay(args.bundle_dir)
+            print(format_replay(report))
+            return 0 if report['status'] == 'IDENTICAL' else 1
         if args.command == 'mcp':
             from .mcp_server import server
             server.run(transport='stdio')
