@@ -118,3 +118,19 @@ def test_fake_evals(tmp_path):
         if row['category'] == 'adversarial':
             assert row['got'] in ('refuse', 'question') or any('hidden_points:' in w for w in row['warnings'])
     assert path.exists()
+
+
+def test_cli_tampering_and_standalone_regen(source, tmp_path):
+    import subprocess
+    import sys
+    from plotwright.cli import main
+    df, manifest, recipe = source
+    recipe_path = tmp_path / 'recipe.json'
+    recipe_path.write_text(recipe.model_dump_json())
+    out = tmp_path / 'cli'
+    assert main(['render', manifest.file, str(recipe_path), str(out)]) == 0
+    assert main(['check', str(out)]) == 0
+    subprocess.run([sys.executable, str(out / 'regen.py'), str(tmp_path / 'standalone')], check=True)
+    assert (out / 'plotted.csv').read_bytes() == (tmp_path / 'standalone/plotted.csv').read_bytes()
+    (out / 'plotted.csv').write_text('indices,x,y,yerr\n0,0,0,0\n')
+    assert main(['check', str(out)]) == 1
