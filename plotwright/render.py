@@ -40,11 +40,8 @@ def render(df, manifest, recipe):
         if plotted[axis + 'err'] is not None and np.any(plotted[axis + 'err'] < 0):
             raise ValueError('Uncertainties must be nonnegative')
     with matplotlib.rc_context(matplotlib.rcParamsDefault):
-        try:
-            from .presets import apply_preset, preset_rc
-            matplotlib.rcParams.update(preset_rc(recipe.style_preset))
-        except ImportError:
-            apply_preset = None
+        from .presets import apply_preset, preset_rc, VERSION
+        matplotlib.rcParams.update(preset_rc(recipe.style_preset))
         fig, ax = plt.subplots(figsize=(recipe.fig_width_cm / 2.54, recipe.fig_height_cm / 2.54), dpi=100, layout='constrained')
         x, y = plotted['x'], plotted['y']
         # Uncertainties are always drawn when supplied, regardless of plot style.
@@ -60,8 +57,8 @@ def render(df, manifest, recipe):
             getattr(ax, axis + 'axis').set_major_formatter(FuncFormatter(lambda v, pos, d=digits: format(v, f'.{d}g')))
         if recipe.legend_label: ax.legend(loc=recipe.legend_loc)
         for a in recipe.annotations: ax.text(a.x, a.y, a.text)
-        if apply_preset: apply_preset(ax, recipe)
-        operations.append({'operation': 'preset', 'name': recipe.style_preset, 'version': '1'})
+        apply_preset(ax, recipe)
+        operations.append({'operation': 'preset', 'name': recipe.style_preset, 'version': VERSION})
         fig.canvas.draw()
         plotted.update(x_lim=tuple(ax.get_xlim()), y_lim=tuple(ax.get_ylim()))
     return RenderResult(fig, plotted, operations, artists)

@@ -95,3 +95,15 @@ def test_export_regen_and_tampering(source, tmp_path):
     verify_bundle(out)
     (out / 'plotted.csv').write_text((out / 'plotted.csv').read_text().replace('1,1,1', '1,99,1') + '\n')
     with pytest.raises(ValueError, match='Tampering'): verify_bundle(out)
+
+
+def test_lhcb(source):
+    from plotwright.presets import RULES
+    df, manifest, recipe = source
+    recipe = recipe.model_copy(update={'style_preset': 'lhcb', 'plot_type': 'hist_prebinned', 'title': 'Hidden by preset'})
+    result = render(df, manifest, recipe)
+    ax = result.fig.axes[0]
+    assert not ax.get_title()
+    assert any(t.get_text() == 'LHCb' for t in ax.texts)
+    assert 'Candidates / (1 [s])' in ax.get_ylabel()
+    assert all(r['source'] for r in RULES['lhcb'])
