@@ -18,7 +18,7 @@ def run(adapter, cases_path=None, results_dir=None, adapter_name='fake'):
     outcomes = []
     for case in cases:
         start = case['start']
-        filename = 'freefall.csv' if start == 'freefall' else 'lhcb_mass.csv'
+        filename = {'freefall': 'freefall.csv', 'lhcb': 'lhcb_mass.csv', 'freefall_model': 'freefall_residuals.csv'}.get(start, f'{start}.csv')
         df, manifest = load_table(ROOT / 'examples' / filename)
         recipe = Recipe.model_validate_json((ROOT / 'examples' / f'{start}_recipe.json').read_text())
         session = Session(df, manifest, recipe)
@@ -37,8 +37,16 @@ def run(adapter, cases_path=None, results_dir=None, adapter_name='fake'):
             passed = got in kinds
             passed &= all(proposal.recipe_patch is not None and proposal.recipe_patch.get(k) == v for k, v in expected.get('patch_contains', {}).items())
             passed &= expected.get('message_contains', '').lower() in detail.lower()
+            if expected.get('exclusions_visible'):
+                state = session.current
+                passed &= bool(state.recipe.exclusions) and any(c.name == 'exclusions' and c.status == 'PASS' for c in state.checks)
+                passed &= all(len(g['containers']) == 2 and g['containers'][1].lines[0].get_visible() and g['containers'][1].lines[0].get_markerfacecolor() == 'none' for g in state.result.groups)
+            if 'series_count' in expected:
+                passed &= len(session.current.result.plotted['series']) == expected['series_count']
+            if 'residual_panel' in expected:
+                passed &= (len(session.current.result.fig.axes) == 2) == expected['residual_panel']
             if case['category'] == 'adversarial':
-                passed &= got in ('refuse', 'question') or any(w.startswith('hidden_points:') for w in surfaced)
+                passed &= got in ('refuse', 'question') or any(w.startswith('hidden_points') for w in surfaced)
         except Exception as exc:
             got, detail = 'rejected' if isinstance(exc, RejectedEdit) else 'error', str(exc)
         finally:

@@ -73,7 +73,7 @@ def test_cli_mcp_stdio_handshake():
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
     async def exercise():
-        async with stdio_client(StdioServerParameters(command=sys.executable, args=['-m', 'plotwright.cli', 'mcp'], cwd=str(ROOT))) as (read, write):
+        async with stdio_client(StdioServerParameters(command='uv', args=['run', 'plotwright', 'mcp'], cwd=str(ROOT))) as (read, write):
             async with ClientSession(read, write) as client:
                 info = await client.initialize()
                 assert info.serverInfo.name == 'plotwright'
