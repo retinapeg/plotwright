@@ -1,0 +1,1 @@
+"""Deterministic, auditable scientific figures."""
