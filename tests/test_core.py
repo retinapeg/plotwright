@@ -194,3 +194,14 @@ def test_tampered_operations_and_errorbars_rejected(source, tmp_path):
     assert next(c for c in checked if c.name == 'uncertainty_scaled').status == 'FAIL'
     with pytest.raises(ValueError): export(result, recipe, manifest, checks, out)
     assert (out / 'keep').read_text() == 'unchanged'
+
+
+def test_export_after_ui_canvas_replacement(source, tmp_path):
+    from matplotlib.backend_bases import FigureCanvasBase
+    from plotwright.export import export, verify_bundle
+    df, manifest, recipe = source
+    result = render(df, manifest, recipe)
+    FigureCanvasBase(result.fig)
+    checks = run_checks(df, manifest, recipe, result)
+    export(result, recipe, manifest, checks, tmp_path / 'serialized')
+    assert all(c.status == 'PASS' for c in verify_bundle(tmp_path / 'serialized'))

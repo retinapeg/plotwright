@@ -57,7 +57,7 @@ class Recipe(Strict):
 
 
 def validate(recipe, manifest):
-    recipe = Recipe.model_validate(recipe)
+    recipe = Recipe.model_validate(recipe.model_dump() if isinstance(recipe, Recipe) else recipe)
     columns = [recipe.x, recipe.y, recipe.x_err, recipe.y_err]
     for col in columns + [t.column for t in recipe.transforms]:
         if col is not None and col not in manifest.columns:

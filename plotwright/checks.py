@@ -57,6 +57,9 @@ def run_checks(df, manifest, recipe, result):
     add('visibility', 'PASS' if visible else 'FAIL', 'Data artists must be visible with a marker or line')
     dropped = any(getattr(recipe, a + '_scale') == 'log' and np.any(p[a] <= 0) for a in ('x', 'y'))
     add('log_axis_valid', 'WARN' if dropped else 'PASS', 'Non-positive points on logarithmic axes' if dropped else 'No points dropped by log scaling')
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    if not hasattr(result.fig.canvas, 'get_renderer'):
+        FigureCanvasAgg(result.fig)
     result.fig.canvas.draw()
     renderer = result.fig.canvas.get_renderer()
     bbox = result.fig.bbox
