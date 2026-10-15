@@ -61,7 +61,8 @@ def run_checks(df, manifest, recipe, result):
     renderer = result.fig.canvas.get_renderer()
     bbox = result.fig.bbox
     clipped = []
-    for artist in [ax.title, ax.xaxis.label, ax.yaxis.label, *ax.texts, *ax.get_xticklabels(), *ax.get_yticklabels(), ax.get_legend()]:
+    tick_labels = [tick.label1 for axis in (ax.xaxis, ax.yaxis) for tick in axis.get_major_ticks() if min(axis.get_view_interval()) <= tick.get_loc() <= max(axis.get_view_interval())]
+    for artist in [ax.title, ax.xaxis.label, ax.yaxis.label, *ax.texts, *tick_labels, ax.get_legend()]:
         if artist is None or not artist.get_visible(): continue
         if hasattr(artist, 'get_text') and not artist.get_text(): continue
         b = artist.get_window_extent(renderer)

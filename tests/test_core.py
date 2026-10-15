@@ -58,7 +58,7 @@ def test_invalid_and_log(tmp_path):
     result = render(df, manifest, recipe)
     row_check = next(c for c in run_checks(df, manifest, recipe, result) if c.name == 'rows_accounted')
     assert row_check.status == 'PASS' and '[1, 2, 3]' in row_check.detail
-    df.loc[0, 'y'] = 0
+    df.loc[0, 'y'] = '0'
     df.to_csv(path, index=False)
     df, manifest = load_table(path)
     with pytest.raises(ValueError): render(df, manifest, Recipe(x='x', y='y', y_scale='log'))
