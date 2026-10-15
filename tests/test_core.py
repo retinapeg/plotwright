@@ -134,3 +134,63 @@ def test_cli_tampering_and_standalone_regen(source, tmp_path):
     assert (out / 'plotted.csv').read_bytes() == (tmp_path / 'standalone/plotted.csv').read_bytes()
     (out / 'plotted.csv').write_text('indices,x,y,yerr\n0,0,0,0\n')
     assert main(['check', str(out)]) == 1
+
+
+def test_source_units_cannot_be_redeclared(source):
+    from plotwright.session import Session, RejectedEdit
+    df, manifest, recipe = source
+    session = Session(df, manifest, recipe)
+    before = session.current
+    with pytest.raises(RejectedEdit, match='Source unit'):
+        session.apply({**recipe.model_dump(), 'y_unit': 'cm'})
+    with pytest.raises(RejectedEdit, match='Source unit'):
+        session.apply({**recipe.model_dump(), 'y_unit': 'cm', 'transforms': [{'column': 'd', 'from_unit': 'mm', 'to_unit': 'cm'}]})
+    assert session.current is before
+
+
+def test_xlsx_affine_and_both_uncertainties(tmp_path):
+    from plotwright.units import conversion
+    path = tmp_path / 'source.xlsx'
+    original = pd.DataFrame({'t': [1., 2.], 'temp': [10., 20.], 'dt': [.1, .2], 'dtemp': [.5, .6]})
+    original.to_excel(path, sheet_name='Measured', index=False)
+    contents = path.read_bytes()
+    df, manifest = load_table(path, sheet='Measured')
+    recipe = Recipe(x='t', y='temp', x_err='dt', y_err='dtemp', x_unit='ms', y_unit='K', transforms=[{'column':'t','from_unit':'s','to_unit':'ms'}, {'column':'temp','from_unit':'C','to_unit':'K'}])
+    result = render(df, manifest, recipe)
+    np.testing.assert_array_equal(result.plotted['xerr'], original.dt * 1000)
+    np.testing.assert_allclose(result.plotted['y'], original.temp + 273.15)
+    np.testing.assert_array_equal(result.plotted['yerr'], original.dtemp)
+    assert all(c.status == 'PASS' for c in run_checks(df, manifest, recipe, result))
+    assert path.read_bytes() == contents
+    assert conversion('K', 'C') == (1., -273.15)
+    with pytest.raises(ValueError): factor('K', 'C')
+
+
+def test_faulty_fixture():
+    from pathlib import Path
+    df, manifest = load_table(Path(__file__).parents[1] / 'examples/faulty.csv')
+    assert [reason for _, _, reason in manifest.invalid_cells].count('missing') == 2
+    assert [reason for _, _, reason in manifest.invalid_cells].count('non-numeric') == 1
+    recipe = Recipe(x='time_s', y='displacement_m', y_err='displacement_unc_m')
+    result = render(df, manifest, recipe)
+    row_check = next(c for c in run_checks(df, manifest, recipe, result) if c.name == 'rows_accounted')
+    assert row_check.status == 'PASS' and '[1, 2, 3]' in row_check.detail
+
+
+def test_tampered_operations_and_errorbars_rejected(source, tmp_path):
+    from plotwright.export import export
+    df, manifest, recipe = source
+    result = render(df, manifest, recipe)
+    checks = run_checks(df, manifest, recipe, result)
+    out = tmp_path / 'existing'
+    out.mkdir()
+    (out / 'keep').write_text('unchanged')
+    result.operations[0]['sha256'] = 'invented'
+    with pytest.raises(ValueError, match='operations'): export(result, recipe, manifest, checks, out)
+    assert list(out.iterdir()) == [out / 'keep']
+    result = render(df, manifest, recipe)
+    result.fig.axes[0].collections[0].set_segments([[[1, 0], [1, 9]]])
+    checked = run_checks(df, manifest, recipe, result)
+    assert next(c for c in checked if c.name == 'uncertainty_scaled').status == 'FAIL'
+    with pytest.raises(ValueError): export(result, recipe, manifest, checks, out)
+    assert (out / 'keep').read_text() == 'unchanged'

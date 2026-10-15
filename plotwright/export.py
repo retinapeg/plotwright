@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import pandas as pd
+import matplotlib.pyplot as plt
 from .data import load_table, Manifest
 from .recipe import Recipe
 from .checks import run_checks
@@ -40,6 +41,12 @@ def export(result, recipe, manifest, checks, out_dir):
     fresh = run_checks(df, manifest, recipe, result)
     if any(c.status == 'FAIL' for c in fresh):
         raise ValueError('Export refused: live integrity check failed')
+    canonical = render(df, fresh_manifest, recipe)
+    try:
+        if canonical.operations != result.operations:
+            raise ValueError('Recorded operations differ from the declared render')
+    finally:
+        plt.close(canonical.fig)
     out = Path(out_dir).resolve()
     if out == source or out in source.parents:
         raise ValueError('Output directory cannot contain the original source')

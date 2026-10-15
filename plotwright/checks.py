@@ -29,7 +29,7 @@ def run_checks(df, manifest, recipe, result):
         expected[axis] = numeric.loc[valid, getattr(recipe, axis)].to_numpy(dtype=float) * scale + offset
         err = getattr(recipe, axis + '_err')
         expected[axis + 'err'] = numeric.loc[valid, err].to_numpy(dtype=float) * abs(scale) if err else None
-    locked = equal(p['indices'], indices) and all(equal(p[k], expected[k]) for k in expected)
+    locked = equal(p['x_lim'], ax.get_xlim()) and equal(p['y_lim'], ax.get_ylim()) and equal(p['indices'], indices) and all(equal(p[k], expected[k]) for k in expected)
     # Check the artist itself as well as the recorded arrays.
     line = ax.lines[0] if ax.lines else None
     locked = locked and line is not None and equal(line.get_xdata(), expected['x']) and equal(line.get_ydata(), expected['y'])
@@ -62,7 +62,7 @@ def run_checks(df, manifest, recipe, result):
     bbox = result.fig.bbox
     clipped = []
     tick_labels = [tick.label1 for axis in (ax.xaxis, ax.yaxis) for tick in axis.get_major_ticks() if min(axis.get_view_interval()) <= tick.get_loc() <= max(axis.get_view_interval())]
-    for artist in [ax.title, ax.xaxis.label, ax.yaxis.label, *ax.texts, *tick_labels, ax.get_legend()]:
+    for artist in [ax.title, ax.xaxis.label, ax.yaxis.label, *ax.texts, *result.fig.texts, *tick_labels, ax.get_legend()]:
         if artist is None or not artist.get_visible(): continue
         if hasattr(artist, 'get_text') and not artist.get_text(): continue
         b = artist.get_window_extent(renderer)

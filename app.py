@@ -34,7 +34,7 @@ identity = (str(path), sheet)
 if st.session_state.get('source_identity') != identity:
     try:
         df, manifest = load_table(path, sheet)
-        if upload:
+        if upload and hashlib.sha256(path.read_bytes()).hexdigest() != hashlib.sha256((ROOT / 'examples/freefall.csv').read_bytes()).hexdigest():
             numeric = [c for c in df if pd.to_numeric(df[c], errors='coerce').notna().any()]
             if len(numeric) < 2: raise ValueError('Choose a table with at least two numeric columns')
             recipe = Recipe(x=numeric[0], y=numeric[1], x_label=numeric[0], y_label=numeric[1])
