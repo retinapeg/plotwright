@@ -1,0 +1,39 @@
+{
+  "x": "mass_MeV",
+  "y": null,
+  "y_err": null,
+  "series": [
+    {
+      "y": "entries",
+      "y_err": "entries_err",
+      "label": "Signal sample"
+    },
+    {
+      "y": "control_entries",
+      "y_err": "control_err",
+      "label": "Control sample"
+    }
+  ],
+  "residuals": null,
+  "x_err": null,
+  "plot_type": "hist_prebinned",
+  "title": null,
+  "x_label": "Mass [MeV/c^2]",
+  "y_label": "Candidates",
+  "x_unit": "MeV/c^2",
+  "y_unit": "",
+  "x_lim": null,
+  "y_lim": null,
+  "x_scale": "linear",
+  "y_scale": "linear",
+  "legend_loc": "upper right",
+  "legend_label": null,
+  "sig_figs_x": 3,
+  "sig_figs_y": 3,
+  "fig_width_cm": 16.0,
+  "fig_height_cm": 12.0,
+  "style_preset": "lhcb",
+  "transforms": [],
+  "annotations": [],
+  "exclusions": []
+}

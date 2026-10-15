@@ -13,8 +13,16 @@ from .render import render
 
 
 def plotted_csv(result):
-    p = result.plotted
-    return pd.DataFrame({k: p[k] for k in ('indices', 'x', 'y', 'yerr', 'xerr', 'excluded') if p[k] is not None}).to_csv(index=False, float_format='%.17g', lineterminator='\n')
+    frames = []
+    multi = len(result.plotted['series']) > 1 or any('residual' in p for p in result.plotted['series'])
+    for p in result.plotted['series']:
+        for panel, data in [('main', p), *([('residual', p['residual'])] if 'residual' in p else [])]:
+            frame = pd.DataFrame({k: data[k] for k in ('indices', 'x', 'y', 'yerr', 'xerr', 'excluded') if data[k] is not None})
+            if multi:
+                frame.insert(0, 'series', p['column'])
+                frame.insert(1, 'panel', panel)
+            frames.append(frame)
+    return pd.concat(frames, ignore_index=True).to_csv(index=False, float_format='%.17g', lineterminator='\n')
 
 
 _REGEN = '''from pathlib import Path
